@@ -1,0 +1,118 @@
+---
+title: "Practical Machine Learning Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: <http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+## Data
+
+The training data for this project are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv>
+
+The test data are available here:
+
+<https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv>
+
+## Project Setup
+
+The goal of this project is to predict how well actions are performed using the following classifications.  The classifications are found in the 'classe' variable in the provided dataset.
+
+- exactly according to the specification (Class A)
+- throwing the elbows to the front (Class B)
+- lifting the dumbbell only halfway (Class C)
+- lowering the dumbbell only halfway (Class D)
+- throwing the hips to the front (Class E)
+
+## Prediction Methodology
+
+Cross validation will be performed by subsampling our training data set with a 70:30 ratio. Our models will be fitted on the training data set, and tested on the validation data. Using different modelling algorithms, the most effective method will be determined.  This method will then be applied on the supplied testing data set.
+
+## Project Setup
+
+The required libraries and datasets are imported.  The random number seed is set for reproducibility.
+
+```{r}
+library(caret)
+library(rpart)
+library(e1071)
+library(randomForest)
+set.seed(1)
+
+train.raw <- read.csv('pml-training.csv', na.strings=c("NA","#DIV/0!",""))
+test.raw <- read.csv('pml-testing.csv', na.strings=c("NA","#DIV/0!",""))
+```
+
+## Cleaning Training Data Set
+
+The first 7 columns contain non essential information, so they are removed.  Then, columns that contain NAs are also removed.
+
+```{r}
+train.clean <- train.raw[, 8:ncol(train.raw)]
+train.clean <- train.clean[, colSums(is.na(train.clean)) == 0] 
+```
+
+The training data is then randomly partioned into a training set and validation set, with a 70:30 ratio.
+
+```{r}
+train <- createDataPartition(train.clean$classe, p=0.70, list=F)
+train.clean <- train.clean[train, ]
+validate <- train.clean[-train, ]
+```
+
+The distribution of the 'classe' variable is displayed in a simple bar plot.
+
+```{r echo=FALSE}
+plot(train.clean$classe, main="Class Breakdown of Training Set", xlab="Classe", ylab="Count")
+```
+
+## Model 1: Decision Tree
+
+The first model was created using the Decisioning Tree algorithm.  The model is then use to predict on the validation dataset.
+
+```{r}
+dt.model <- rpart(classe ~ ., data = train.clean, method = "class")
+dt.predict <- predict(dt.model, validate, type = "class")
+confusionMatrix(validate$classe, dt.predict)
+```
+
+As seen from the confusion matrix, the decision tree model has fairly low accuracy.
+
+## Model 2: Random Forest
+
+The second model was created using the Random Forest algorithm.  The same process is applied to the validation dataset.
+
+```{r}
+rf.model <- randomForest(classe ~ ., data = train.clean, method = "class")
+rf.predict <- predict(rf.model, validate, type = "class")
+confusionMatrix(validate$classe, rf.predict)
+```
+
+This model created very accurate predictions.  In fact, it is possible that the model overfits the training dataset.  However, for the purpose of this project, the model should provide good predictions on the testing dataset.  The random forest model is still signficantly more accurate than the decision tree model.  Therefore, the model will be applied to the testing dataset to measure its performance.
+
+## Final Prediction Performance
+
+The provided testing dataset is cleaned and wrangled using the same method as the training set.  Then, the random forest model is applied.
+
+```{r}
+test.clean <- test.raw[, 8:ncol(test.raw)]
+results <- predict(rf.model, test.clean[, -length(names(test.clean))])
+results
+```
+
+The distribution of the predictions are plotted, as a simple comparison to the distribution of the training set.
+
+```{r echo=FALSE}
+plot(results, main="Class Breakdown of Testing Set", xlab="Classe", ylab="Count")
+```
+
+
+
+
